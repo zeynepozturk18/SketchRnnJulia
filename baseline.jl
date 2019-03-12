@@ -14,7 +14,7 @@ include("utils.jl")
 @pyimport numpy as np
 
 hparams = Dict(
-    "data_set"=>["cat", "train"],  # Our dataset.
+    "data_set"=>["cat"],  # Our dataset.
     "num_steps"=>500,  # Total number of steps of training. Keep large.
     "save_every"=>100,  # Number of batches per checkpoint creation.
     "max_seq_len"=>250,  # Not used. Will be changed by model. [Eliminate?]
@@ -95,3 +95,13 @@ max_seq_len = get_max_len(all_strokes)
 hparams["max_seq_len"] = max_seq_len
 
 println("Maximum sequence length is $max_seq_len")
+#println("train max len: ", get_max_len(train_strokes) )
+
+train_set = preprocess(DataLoader(train_strokes))
+
+#println("train max len after: ", get_max_len(train_set.strokes) )
+#println("train 1 max len after: ", size(train_set.strokes[1]) )
+#println("train 7000 max len after: ", size(train_set.strokes[7000]) )
+
+normalizing_scale_factor = calculate_normalizing_scale_factor(train_set)
+#println(normalizing_scale_factor)
