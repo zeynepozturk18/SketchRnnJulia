@@ -3,6 +3,9 @@ using Base.Iterators: flatten, vcat
 using Statistics: mean
 using Knet: Knet, AutoGrad, param, param0, mat, RNN, relu, Data, adam, progress, nll, zeroone
 using PyCall
+push!( LOAD_PATH, "./" )
+include("utils.jl")
+#using utils
 
 ### NPZ did not work because while loading the files encoding must be specified
 ### and NPZ does not have that capability
@@ -40,8 +43,8 @@ hparams = Dict(
     "conditional"=>true,  # When False, use unconditional decoder-only model.
     "is_training"=>true  # Is model training? Recommend keeping true.
 )
-#datasets = hparams["data_set"]
-datasets = readlines("classes.txt")
+datasets = hparams["data_set"]
+#datasets = readlines("classes.txt")
 #println(datasets)
 filepath = "/Users/zeynepozturk/dersler/comp541/data/"
 train_strokes = Float32[]; valid_strokes = Float32[]; test_strokes = Float32[]
@@ -72,14 +75,23 @@ for (idx, dataset) in enumerate(datasets)
     end
 end
 
-#=
-trn = get(data, PyObject, "train")
-tst = get(data, PyObject, "test")
-val = get(data, PyObject, "valid")
+#println(size(train_strokes[1]))
 
-trn = convert(Array{Array{Float32}}, trn)
-tst = convert(Array{Array{Float32}}, tst)
-val = convert(Array{Array{Float32}}, val)
+all_strokes = vcat(train_strokes, valid_strokes, test_strokes)
+num_points = 0
 
-println(size(trn[1]))
-=#
+for stroke in all_strokes
+    global num_points
+  num_points += size(stroke,1)
+end
+avg_len = num_points / size(all_strokes,1)
+println("Dataset nb of instances $(size(all_strokes,1)) ($(size(train_strokes,1))
+/ $(size(valid_strokes,1)) / $(size(test_strokes,1))) with average length of strokes $avg_len")
+
+
+# calculate the max strokes we need.
+max_seq_len = get_max_len(all_strokes)
+# overwrite the hps with this calculation.
+hparams["max_seq_len"] = max_seq_len
+
+println("Maximum sequence length is $max_seq_len")
