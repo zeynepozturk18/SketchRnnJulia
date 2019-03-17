@@ -1,3 +1,4 @@
+using Pkg; for p in ("Statistics","Random"); haskey(Pkg.installed(),p) || Pkg.add(p); end
 using Statistics: std
 using Random
 

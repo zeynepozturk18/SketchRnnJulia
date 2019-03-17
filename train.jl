@@ -137,3 +137,6 @@ sample_model_params = load_dataset(data_dir, model_params; inference_mode=false)
 # minibatching
 _, batches, seq_len = minibatch2(train_set)
 println(summary(batches))
+
+#output
+#sample(model, seq_len=250, temperature=1.0, greedy_mode=false, z=nothing)
