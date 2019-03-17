@@ -96,7 +96,7 @@ function preprocess(d::DataLoader)
     println("total images <= max_seq_len is $count_data")
     d.num_batches = divrem(count_data, d.batch_size)[1]
     println("nb of batches: ", d.num_batches)
-    println("nb of strokes: ", size(d.strokes))
+    println("nb of sketches: ", size(d.strokes))
     return d
 end
 
@@ -185,6 +185,7 @@ end
 function pad_batch(d::DataLoader, batch, max_len)
   """Pad the batch to be stroke-5 bigger format as described in paper."""
   result = zeros(Float32, d.batch_size, max_len + 1, 5)
+  #println("batch size: ", size(batch,1))
   @assert size(batch,1) == d.batch_size
   for i in 1:d.batch_size
     l = size(batch[i],1)
@@ -201,5 +202,23 @@ function pad_batch(d::DataLoader, batch, max_len)
     result[i, 1, 4] = d.start_stroke_token[4]
     result[i, 1, 5] = d.start_stroke_token[5]
   end
+  #println(size(result)) 100*130*5
   return result
+end
+
+function minibatch2(d::DataLoader)
+  """Return a randomised portion of the training data."""
+  indices = []
+  batches = []
+  not_padded = []
+  seq_len = []
+  idx = randperm(size(d.strokes,1))
+  for i in 1:d.num_batches
+      push!(indices, idx[d.batch_size*(i-1)+1:d.batch_size*i])
+      x, xp, s = _get_batch_from_indices(d, idx[d.batch_size*(i-1)+1:d.batch_size*i])
+      push!(not_padded, x)
+      push!(batches, xp)
+      push!(seq_len, s)
+  end
+  return not_padded, batches, seq_len
 end

@@ -132,4 +132,8 @@ end
 train_set, valid_set, test_set, model_params, eval_model_params,
 sample_model_params = load_dataset(data_dir, model_params; inference_mode=false)
 
-random_batch(train_set)
+#random_batch(train_set) # one batch at a time as in the paper
+
+# minibatching
+_, batches, seq_len = minibatch2(train_set)
+println(summary(batches))
