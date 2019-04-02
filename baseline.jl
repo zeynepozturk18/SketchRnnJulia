@@ -177,7 +177,7 @@ function build_model(hps)
     output_x = input_data[:, 2:hps["max_seq_len"]+1, :]
     # vectors of strokes to be fed to decoder (same as above, but lagged behind
     # one step to include initial dummy value of (0, 0, 1, 0, 0))
-    self.input_x = self.input_data[:, 1:hps["max_seq_len"], :]
+    input_x = input_data[:, 1:hps["max_seq_len"], :]
 
     # either do vae-bit and get z, or do unconditional, decoder-only
 
@@ -193,6 +193,10 @@ function build_model(hps)
         kl_cost = -0.5*mean(1+presig-mean^2-exp(presig))
         kl_cost = max(kl_cost, hps["kl_tolerance"])
     elseif
+        batch_z = zeros(Float32, (hps["batch_size"], hps["z_size"]))
+        kl_cost = zeros(Float32, 1)
+        actual_input_x = input_x
+        #initial_state
     end
 
 
@@ -340,6 +344,15 @@ function build_model(hps)
                             o_pen_logits, x1_data, x2_data, pen_data)
 
     r_cost = mean(lossfunc)
+
+    if hps["is_training"]
+        lr = hps["learning_rate"]
+        # optimizer = Adam
+        kl_weight = hps["kl_weight_start"]
+        cost = r_cost + kl_cost * kl_weight
+
+        #gradient clipping
+    end
 
     #=
 
