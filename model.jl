@@ -39,11 +39,47 @@ function get_default_hparams()
         "output_dropout_prob"=>0.90,  # Probability of output dropout keep.
         "random_scale_factor"=>0.15,  # Random scaling data augmention proportion.
         "augment_stroke_prob"=>0.10,  # Point dropping augmentation proportion.
-        "conditional"=>true,  # When False, use unconditional decoder-only model.
+        "conditional"=>false,  # When False, use unconditional decoder-only model.
         "is_training"=>true  # Is model training? Recommend keeping true.
     )
     return hparams
 end
+
+_usegpu = gpu()>=0
+_atype = ifelse(_usegpu, KnetArray{Float32}, Array{Float64})
+
+mutable struct Linear
+    w # weight
+    b # bias
+end
+
+function Linear(xsize::Int, ysize::Int, atype=_atype, scale=0.01)
+    w = Param(convert(atype, scale*randn(ysize, xsize)));
+    b = Param(convert(atype, zeros(ysize)));
+    return Linear(w,b)
+end
+
+function (l::Linear)(x)
+    l.w * mat(x, dims=1) .+ l.b
+end
+
+mutable struct Decoder
+    rnn::RNN
+    linear_layer::Linear
+end
+
+function Decoder(inputs, dec_hidden, n_out, usegpu=_usegpu)
+    rnn = RNN(inputs, dec_hidden; usegpu=_usegpu)
+    linear_layer = Linear(dec_hidden, n_out, atype)
+    return Decoder(rnn, linear_layer)
+end
+
+function (m::Decoder)(x)
+    dec_output = m.rnn(x)
+    output=m.linear_layer(dec_output)
+    return output
+end
+
 #=
 class Model(object):
   """Define a SketchRNN model."""
