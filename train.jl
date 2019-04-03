@@ -5,7 +5,8 @@ using Knet: Knet, AutoGrad, param, param0, mat, RNN, relu, Data, adam, progress,
 using PyCall
 push!( LOAD_PATH, "./" )
 include("utils.jl")
-include("model.jl")
+#include("model.jl")
+include("baseline.jl")
 
 #using utils
 
@@ -16,7 +17,8 @@ include("model.jl")
 #@pyimport numpy as np
 np=pyimport("numpy")
 
-data_dir = "/Users/zeynepozturk/dersler/comp541/data/"
+# data_dir = "/Users/zeynepozturk/dersler/comp541/data/" #mac
+data_dir = "/home/zeynep/Downloads/comp541/SketchRNN/data/" #ubuntu
 
 model_params=get_default_hparams()
 
@@ -129,8 +131,7 @@ function load_dataset(data_dir, model_params; inference_mode=false)
     return result
 end
 
-train_set, valid_set, test_set, model_params, eval_model_params,
-sample_model_params = load_dataset(data_dir, model_params; inference_mode=false)
+train_set, valid_set, test_set, model_params, eval_model_params, sample_model_params = load_dataset(data_dir, model_params; inference_mode=false)
 
 #random_batch(train_set) # one batch at a time as in the paper
 
@@ -140,3 +141,10 @@ println(summary(batches))
 
 #output
 #sample(model, seq_len=250, temperature=1.0, greedy_mode=false, z=nothing)
+
+# build_model
+hps = get_default_hparams()
+kl_cost = build_model(hps) # baseline kl cost
+println("baseline kl cost: $kl_cost")
+
+output = baseline_sample(0.01, 1.01)

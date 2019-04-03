@@ -26,6 +26,7 @@ function get_default_hparams()
         "kl_tolerance"=>0.2,  # Level of KL loss at which to stop optimizing for KL.
         "batch_size"=>100,  # Minibatch size. Recommend leaving at 100.
         "grad_clip"=>1.0,  # Gradient clipping. Recommend leaving at 1.0.
+        "num_mixture"=>20,  # Number of mixtures in Gaussian mixture model.
         "learning_rate"=>0.001,  # Learning rate.
         "decay_rate"=>0.9999,  # Learning rate decay per minibatch.
         "kl_decay_rate"=>0.99995,  # KL annealing decay rate per minibatch.
@@ -177,7 +178,7 @@ function build_model(hps)
     output_x = input_data[:, 2:hps["max_seq_len"]+1, :]
     # vectors of strokes to be fed to decoder (same as above, but lagged behind
     # one step to include initial dummy value of (0, 0, 1, 0, 0))
-    self.input_x = self.input_data[:, 1:hps["max_seq_len"], :]
+    input_x = input_data[:, 1:hps["max_seq_len"], :]
 
     # either do vae-bit and get z, or do unconditional, decoder-only
 
@@ -188,11 +189,15 @@ function build_model(hps)
         sigma = 1.01
         presig = 2*log(sigma)
         eps = randn(Float32, (hps["batch_size"], hps["z_size"]))
-        batch_z = mean + sigma.*eps
+        batch_z = mean .+ sigma.*eps
         # KL cost
         kl_cost = -0.5*mean(1+presig-mean^2-exp(presig))
         kl_cost = max(kl_cost, hps["kl_tolerance"])
-    elseif
+    else
+        batch_z = zeros(Float32, (hps["batch_size"], hps["z_size"]))
+        kl_cost = zeros(Float32, 1)
+        actual_input_x = input_x
+        #initial_state
     end
 
 
@@ -308,7 +313,7 @@ function build_model(hps)
       # This uses eqns 18 -> 23 of http://arxiv.org/abs/1308.0850.
       z = output
       z_pen_logits = z[:, 1:3]  # pen states
-      z_new = z[:, 4:]
+      z_new = z[:, 4:end]
       n = 6
       z_pi, z_mu1, z_mu2, z_sigma1, z_sigma2, z_corr =  reshape(z_new, (n, div(size(z_new,2), n)))
 
@@ -327,19 +332,29 @@ function build_model(hps)
       return r
     end
 
-    out = get_mixture_coef(output)
-    [o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr, o_pen, o_pen_logits] = out
-
-
-    target = reshape(output_x, (:, 5))
-    #split to 5 equal parts
-    [x1_data, x2_data, eos_data, eoc_data, cont_data] = reshape(target, (5, div(size(target, 2), 5)))
-    pen_data = hcat(eos_data, eoc_data, cont_data)
-
-    lossfunc = get_lossfunc(o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr,
-                            o_pen_logits, x1_data, x2_data, pen_data)
-
-    r_cost = mean(lossfunc)
+    # out = get_mixture_coef(output)
+    # println("out: ", out)
+    # o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr, o_pen, o_pen_logits = out
+    #
+    #
+    # target = reshape(output_x, (:, 5))
+    # #split to 5 equal parts
+    # x1_data, x2_data, eos_data, eoc_data, cont_data = reshape(target, (5, div(size(target, 2), 5)))
+    # pen_data = hcat(eos_data, eoc_data, cont_data)
+    #
+    # lossfunc = get_lossfunc(o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr,
+    #                         o_pen_logits, x1_data, x2_data, pen_data)
+    #
+    # r_cost = mean(lossfunc)
+    #
+    # if hps["is_training"]
+    #     lr = hps["learning_rate"]
+    #     # optimizer = Adam
+    #     kl_weight = hps["kl_weight_start"]
+    #     cost = r_cost + kl_cost * kl_weight
+    #
+    #     #gradient clipping
+    # end
 
     #=
 
@@ -356,6 +371,7 @@ function build_model(hps)
       self.train_op = optimizer.apply_gradients(
           capped_gvs, global_step=self.global_step, name='train_step')
     =#
+    return kl_cost
 end
 
 function sample(model, seq_len=250, temperature=1.0, greedy_mode=false, z=nothing)
@@ -439,7 +455,7 @@ function sample(model, seq_len=250, temperature=1.0, greedy_mode=false, z=nothin
           model.pen, model.final_state], feed)
     =#
 
-    [o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr, o_pen, next_state] = params
+    o_pi, o_mu1, o_mu2, o_sigma1, o_sigma2, o_corr, o_pen, next_state = params
 
     idx = get_pi_idx(rand(), o_pi[1], temp, greedy)
 
